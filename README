@@ -1,0 +1,152 @@
+# 🐜 TSP via Ant Colony Optimization
+
+**Assignment A.5 — Computational Intelligence**
+Implementation of the Travelling Salesman Problem using Ant System (AS) and Max-Min Ant System (MMAS), with a light academic-themed web frontend.
+
+---
+
+## 📁 Project Structure
+
+```
+tsp_aco/
+├── backend/
+│   ├── tsp_aco.py        # AS + MMAS algorithm logic
+│   ├── app.py            # Flask REST API
+│   └── requirements.txt  # Python dependencies
+└── frontend/
+    └── index.html        # Web UI (no framework needed)
+```
+
+---
+
+## ⚙️ Setup & Run
+
+### 1. Clone / create the project folder
+```powershell
+mkdir tsp_aco
+cd tsp_aco
+```
+
+### 2. Install Python dependencies
+```powershell
+cd backend
+pip install -r requirements.txt
+```
+
+### 3. Start the Flask backend
+```powershell
+python app.py
+```
+Server runs at → `http://localhost:5000`
+
+### 4. Open the frontend
+Open `frontend/index.html` directly in your browser, or use the VS Code **Live Server** extension (right-click → *Open with Live Server*).
+
+---
+
+## 🧠 Algorithms
+
+### Ant System (AS)
+- All `m` ants construct tours each iteration
+- Every ant deposits pheromone proportional to `Q / tour_length`
+- Pheromone evaporates at rate `ρ` each iteration
+- Simple but prone to stagnation on longer runs
+
+### Max-Min Ant System (MMAS)
+- Only the **iteration-best** ant deposits pheromone
+- Pheromone is clamped to `[τ_min, τ_max]` after every update
+- Prevents dominance of a single path, enforces diversity
+- Generally converges to better solutions on harder instances
+
+### Probability Rule (both algorithms)
+```
+P(i→j) = [τ_ij]^α × [η_ij]^β  /  Σ [τ_ik]^α × [η_ik]^β
+```
+where `η_ij = 1 / d_ij` is the heuristic visibility.
+
+---
+
+## 📊 Problem Data
+
+**Distance matrix `d` (5 cities):**
+```
+     C0   C1   C2   C3   C4
+C0 [  0   10   12   11   14 ]
+C1 [ 10    0   13   15    8 ]
+C2 [ 12   13    0    9   14 ]
+C3 [ 11   15    9    0   16 ]
+C4 [ 14    8   14   16    0 ]
+```
+
+**Initial pheromone `τ₀`:** All entries = 1.0 (uniform prior)
+
+---
+
+## 🔧 Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `m` | 10 | Number of ants |
+| Iterations | 100 | Total iterations |
+| `α` | 1.0 | Pheromone weight |
+| `β` | 2.0 | Heuristic weight |
+| `ρ` | 0.5 | Evaporation rate |
+| `Q` | 100 | Pheromone deposit constant |
+| `τ_max` | 6.0 | MMAS upper pheromone bound |
+| `τ_min` | 0.1 | MMAS lower pheromone bound |
+
+All parameters are adjustable from the web UI.
+
+---
+
+## 🌐 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/run_as` | Run Ant System with given params |
+| `POST` | `/run_mmas` | Run Max-Min AS with given params |
+| `GET` | `/compare` | Run both and return comparison |
+
+**Example request body:**
+```json
+{
+  "n_ants": 10,
+  "n_iterations": 100,
+  "alpha": 1.0,
+  "beta": 2.0,
+  "rho": 0.5,
+  "Q": 100,
+  "seed": 42,
+  "tau_max": 6.0,
+  "tau_min": 0.1
+}
+```
+
+---
+
+## 📈 Complexity Comparison
+
+| Metric | AS | MMAS |
+|--------|----|------|
+| Time complexity | O(m · n² · t) | O(m · n² · t) |
+| Pheromone update | All ants | Best ant only |
+| Stagnation risk | Higher | Lower |
+| Exploration | Moderate | Higher (bounds enforced) |
+
+---
+
+## 🛠️ Dependencies
+
+```
+flask==3.0.3
+flask-cors==4.0.1
+numpy==1.26.4
+```
+Frontend uses **Chart.js** (loaded via CDN) — no npm needed.
+
+---
+
+## 📚 References
+
+- Dorigo, M., & Stützle, T. (2004). *Ant Colony Optimization*. MIT Press.
+- Stützle, T., & Hoos, H. H. (2000). MAX–MIN Ant System. *Future Generation Computer Systems*, 16(8), 889–914.
