@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from tsp_aco import AntSystemTSP, MaxMinAntSystem, compare_algorithms, DISTANCE_MATRIX, PHEROMONE_INIT
+from tsp_aco import AntSystemTSP, MaxMinAntSystem, RankBasedAntSystem, compare_algorithms, DISTANCE_MATRIX, PHEROMONE_INIT
 import numpy as np
 
 app = Flask(__name__)
@@ -9,7 +9,7 @@ CORS(app)
 
 @app.route('/')
 def index():
-    return jsonify({'status': 'TSP ACO API running', 'endpoints': ['/run_as', '/run_mmas', '/compare']})
+    return jsonify({'status': 'TSP ACO API running', 'endpoints': ['/run_as', '/run_mmas', '/run_rank_as', '/compare']})
 
 
 @app.route('/run_as', methods=['POST'])
@@ -49,6 +49,27 @@ def run_mmas():
                              n_ants=n_ants, n_iterations=n_iterations,
                              alpha=alpha, beta=beta, rho=rho, Q=Q,
                              tau_max=tau_max, tau_min=tau_min)
+    result = solver.solve()
+    return jsonify(result)
+
+
+@app.route('/run_rank_as', methods=['POST'])
+def run_rank_as():
+    data = request.get_json(silent=True) or {}
+    n_ants = data.get('n_ants', 10)
+    n_iterations = data.get('n_iterations', 100)
+    alpha = data.get('alpha', 1.0)
+    beta = data.get('beta', 2.0)
+    rho = data.get('rho', 0.5)
+    Q = data.get('Q', 100.0)
+    weight = data.get('weight', 6)
+    seed = data.get('seed', 42)
+    np.random.seed(seed)
+
+    solver = RankBasedAntSystem(DISTANCE_MATRIX, PHEROMONE_INIT,
+                               n_ants=n_ants, n_iterations=n_iterations,
+                               alpha=alpha, beta=beta, rho=rho, Q=Q,
+                               weight=weight)
     result = solver.solve()
     return jsonify(result)
 

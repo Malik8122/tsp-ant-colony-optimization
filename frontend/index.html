@@ -3,743 +3,430 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TSP — Ant Colony Optimization</title>
+<title>TSP via Ant Colony Optimization</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Source+Code+Pro:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
-
   :root {
-    --bg: #0a0a0f;
-    --surface: #111118;
-    --border: #1e1e2e;
-    --accent: #00ffcc;
-    --accent2: #ff6b35;
-    --accent3: #a78bfa;
-    --text: #e2e8f0;
-    --muted: #64748b;
-    --as-color: #00ffcc;
-    --mmas-color: #ff6b35;
-    --card: #13131f;
+    --paper: #f7f3eb;
+    --paper2: #efe9dc;
+    --paper3: #e8e0d0;
+    --ink: #1a1612;
+    --ink2: #3d3530;
+    --ink3: #6b5f54;
+    --ink4: #9b8e83;
+    --red: #8b1a1a;
+    --blue: #1a3a6b;
+    --green: #1a5c3a;
+    --purple: #4a1a6b;
+    --rule: #c8bfb0;
+    --shadow: rgba(26,22,18,0.08);
   }
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Syne', sans-serif;
+    background: #ddd8ce;
+    background-image: radial-gradient(ellipse at 20% 20%, #e8e2d8 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, #d8d2c8 0%, transparent 60%);
+    font-family: 'EB Garamond', Georgia, serif;
+    color: var(--ink);
     min-height: 100vh;
-    overflow-x: hidden;
+    padding: 2rem 1rem;
   }
-
-  /* Grid background */
   body::before {
     content: '';
     position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(0,255,204,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,255,204,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.6;
   }
+  .page {
+    position: relative; z-index: 1;
+    max-width: 960px; margin: 0 auto;
+    background: var(--paper);
+    box-shadow: 0 4px 6px var(--shadow), 0 20px 60px rgba(26,22,18,0.15), 0 1px 0 rgba(255,255,255,0.8) inset;
+    border-radius: 2px;
+  }
+  .page-top { height: 6px; background: linear-gradient(90deg, var(--red) 0%, var(--red) 33%, var(--ink) 33%, var(--ink) 66%, var(--blue) 66%); border-radius: 2px 2px 0 0; }
+  .page-inner { padding: 3rem 4rem 4rem; }
 
-  .wrapper { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 2rem; }
+  .journal-header { text-align: center; border-bottom: 2px solid var(--ink); padding-bottom: 1.5rem; margin-bottom: 0.5rem; }
+  .journal-meta { font-family: 'Source Code Pro', monospace; font-size: 0.65rem; color: var(--ink3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 1rem; }
+  .journal-title { font-family: 'Lora', serif; font-size: 2rem; font-weight: 700; line-height: 1.2; color: var(--ink); margin-bottom: 0.4rem; }
+  .journal-subtitle { font-family: 'EB Garamond', serif; font-style: italic; font-size: 1.05rem; color: var(--ink3); }
+  .rule-thin { border: none; border-top: 1px solid var(--rule); margin: 1rem 0; }
+  .rule-thick { border: none; border-top: 2px solid var(--ink); margin: 1.5rem 0; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+  .four-col { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .section-head { font-family: 'Lora', serif; font-size: 0.7rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--ink3); border-bottom: 1px solid var(--rule); padding-bottom: 0.3rem; margin-bottom: 1rem; }
 
-  /* Header */
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.5rem 0 2rem;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 2rem;
-  }
-  .logo {
-    display: flex; align-items: center; gap: 0.75rem;
-  }
-  .logo-icon {
-    width: 40px; height: 40px;
-    background: linear-gradient(135deg, var(--accent), var(--accent3));
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem;
-  }
-  .logo h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; }
-  .logo span { color: var(--accent); }
-  .badge {
-    background: rgba(0,255,204,0.1);
-    border: 1px solid rgba(0,255,204,0.3);
-    color: var(--accent);
-    font-family: 'Space Mono', monospace;
-    font-size: 0.7rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: 4px;
-  }
+  .matrix-wrap { margin-bottom: 1.5rem; }
+  .matrix-label { font-family: 'Source Code Pro', monospace; font-size: 0.75rem; color: var(--ink3); margin-bottom: 0.5rem; }
+  .matrix-label em { font-style: italic; font-family: 'EB Garamond', serif; font-size: 0.95rem; color: var(--ink2); }
+  .matrix-table { border-collapse: collapse; font-family: 'Source Code Pro', monospace; font-size: 0.8rem; }
+  .matrix-table td { width: 36px; height: 30px; text-align: center; border: 1px solid var(--rule); color: var(--ink2); background: rgba(255,255,255,0.4); }
+  .matrix-table td.diag { color: var(--ink4); background: var(--paper2); }
+  .matrix-table tr:first-child td { border-top: 2px solid var(--ink3); }
+  .matrix-table tr:last-child td { border-bottom: 2px solid var(--ink3); }
+  .matrix-table td:first-child { border-left: 2px solid var(--ink3); }
+  .matrix-table td:last-child { border-right: 2px solid var(--ink3); }
 
-  /* Matrices section */
-  .matrices {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
-    margin-bottom: 2rem;
-  }
-  .matrix-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-  }
-  .matrix-card h3 {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.8rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1rem;
-  }
-  .matrix-card h3 span { color: var(--accent); }
-  .matrix-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 4px;
-  }
-  .matrix-cell {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    text-align: center;
-    padding: 0.4rem 0;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.85rem;
-    transition: background 0.2s;
-  }
-  .matrix-cell.zero { color: var(--muted); }
-  .matrix-cell.highlight { background: rgba(0,255,204,0.12); color: var(--accent); border-color: rgba(0,255,204,0.3); }
+  .param-block { margin-bottom: 1.5rem; }
+  .param-row { display: flex; align-items: center; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px dotted var(--rule); font-size: 0.9rem; }
+  .param-row:last-child { border-bottom: none; }
+  .param-name { color: var(--ink2); }
+  .param-name em { font-style: italic; }
+  .param-val { font-family: 'Source Code Pro', monospace; font-size: 0.8rem; background: var(--paper2); border: 1px solid var(--rule); border-radius: 2px; padding: 0.15rem 0.5rem; color: var(--ink); width: 72px; text-align: right; outline: none; transition: border-color 0.2s, background 0.2s; }
+  .param-val:focus { border-color: var(--ink3); background: #fff; }
 
-  /* Controls */
-  .controls-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
-    margin-bottom: 2rem;
-  }
-  .control-group {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-  }
-  .control-group h3 {
-    font-size: 0.75rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1rem;
-  }
-  .param-row {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 0.6rem;
-  }
-  .param-row label { font-size: 0.85rem; color: var(--text); }
-  .param-row input {
-    width: 80px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    font-size: 0.85rem;
-    padding: 0.3rem 0.5rem;
-    text-align: right;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .param-row input:focus { border-color: var(--accent); }
-
-  /* Run buttons */
-  .run-buttons {
-    display: flex; gap: 1rem; margin-bottom: 2rem;
-  }
-  .btn {
-    flex: 1;
-    padding: 0.9rem 1.5rem;
-    border: none; cursor: pointer;
-    border-radius: 10px;
-    font-family: 'Syne', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-  .btn::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: rgba(255,255,255,0.1);
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-  .btn:hover::before { opacity: 1; }
-  .btn:active { transform: scale(0.98); }
-  .btn-as {
-    background: linear-gradient(135deg, rgba(0,255,204,0.2), rgba(0,255,204,0.05));
-    border: 1px solid var(--accent);
-    color: var(--accent);
-  }
-  .btn-mmas {
-    background: linear-gradient(135deg, rgba(255,107,53,0.2), rgba(255,107,53,0.05));
-    border: 1px solid var(--accent2);
-    color: var(--accent2);
-  }
-  .btn-compare {
-    background: linear-gradient(135deg, rgba(167,139,250,0.2), rgba(167,139,250,0.05));
-    border: 1px solid var(--accent3);
-    color: var(--accent3);
-  }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn .spinner {
-    display: inline-block;
-    width: 14px; height: 14px;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    vertical-align: middle;
-    margin-right: 6px;
-  }
+  .btn-row { display: flex; gap: 1rem; margin: 1.5rem 0; }
+  .btn { flex: 1; padding: 0.6rem 1rem; font-family: 'Lora', serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; border-radius: 2px; transition: all 0.15s; letter-spacing: 0.3px; }
+  .btn-as { background: var(--paper); border: 2px solid var(--blue); color: var(--blue); }
+  .btn-as:hover { background: var(--blue); color: var(--paper); }
+  .btn-mmas { background: var(--paper); border: 2px solid var(--red); color: var(--red); }
+  .btn-mmas:hover { background: var(--red); color: var(--paper); }
+  .btn-rank { background: var(--paper); border: 2px solid var(--purple); color: var(--purple); }
+  .btn-rank:hover { background: var(--purple); color: var(--paper); }
+  .btn-compare { background: var(--ink); border: 2px solid var(--ink); color: var(--paper); }
+  .btn-compare:hover { background: var(--ink2); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 5px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Results grid */
-  .results { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-  .result-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-    min-height: 220px;
-    position: relative;
-  }
-  .result-card .alg-label {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1rem;
-  }
-  .result-card.as-card { border-top: 2px solid var(--as-color); }
-  .result-card.as-card .alg-label { color: var(--as-color); }
-  .result-card.mmas-card { border-top: 2px solid var(--mmas-color); }
-  .result-card.mmas-card .alg-label { color: var(--mmas-color); }
+  .result-card { background: rgba(255,255,255,0.35); border: 1px solid var(--rule); border-radius: 2px; padding: 1.2rem 1.5rem; min-height: 180px; }
+  .result-card.as-card { border-left: 4px solid var(--blue); }
+  .result-card.mmas-card { border-left: 4px solid var(--red); }
+  .result-card.rank-card { border-left: 4px solid var(--purple); }
+  .result-algo { font-family: 'Source Code Pro', monospace; font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.75rem; }
+  .as-card .result-algo { color: var(--blue); }
+  .mmas-card .result-algo { color: var(--red); }
+  .rank-card .result-algo { color: var(--purple); }
+  .result-big { font-family: 'Lora', serif; font-size: 2.8rem; font-weight: 700; line-height: 1; color: var(--ink); margin-bottom: 0.2rem; }
+  .result-sub { font-size: 0.8rem; color: var(--ink3); font-style: italic; margin-bottom: 1rem; }
+  .tour-path { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin: 0.75rem 0; }
+  .city-chip { font-family: 'Source Code Pro', monospace; font-size: 0.7rem; padding: 0.2rem 0.45rem; border-radius: 2px; font-weight: 600; }
+  .as-chip { background: rgba(26,58,107,0.1); border: 1px solid rgba(26,58,107,0.3); color: var(--blue); }
+  .mmas-chip { background: rgba(139,26,26,0.1); border: 1px solid rgba(139,26,26,0.3); color: var(--red); }
+  .rank-chip { background: rgba(74,26,107,0.1); border: 1px solid rgba(74,26,107,0.3); color: var(--purple); }
+  .arrow-sep { color: var(--ink4); font-size: 0.65rem; }
+  .result-meta { display: flex; gap: 1.5rem; font-size: 0.8rem; color: var(--ink3); border-top: 1px dotted var(--rule); padding-top: 0.75rem; margin-top: 0.5rem; }
+  .result-meta span { font-family: 'Source Code Pro', monospace; color: var(--ink2); font-size: 0.75rem; }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 140px; color: var(--ink4); font-style: italic; font-size: 0.9rem; gap: 0.4rem; text-align: center; }
+  .empty-state .ant-icon { font-size: 1.5rem; opacity: 0.4; }
 
-  .metric-big {
-    font-size: 2.5rem;
-    font-weight: 800;
-    line-height: 1;
-    margin-bottom: 0.25rem;
-  }
-  .metric-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem; }
+  .canvas-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .canvas-label { font-family: 'Source Code Pro', monospace; font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.5rem; }
+  canvas { width: 100% !important; background: rgba(255,255,255,0.5); border: 1px solid var(--rule); border-radius: 2px; }
 
-  .tour-path {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem;
-    margin-top: 0.75rem;
-  }
-  .city-node {
-    width: 34px; height: 34px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-  .city-node.as-node { background: rgba(0,255,204,0.15); border: 1.5px solid var(--as-color); color: var(--as-color); }
-  .city-node.mmas-node { background: rgba(255,107,53,0.15); border: 1.5px solid var(--mmas-color); color: var(--mmas-color); }
-  .arrow { color: var(--muted); font-size: 0.7rem; }
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .cmp-table thead tr { border-bottom: 2px solid var(--ink); }
+  .cmp-table th { font-family: 'Lora', serif; font-weight: 600; padding: 0.5rem 0.75rem; text-align: left; color: var(--ink); font-size: 0.8rem; }
+  .cmp-table td { padding: 0.5rem 0.75rem; border-bottom: 1px dotted var(--rule); vertical-align: top; color: var(--ink2); }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .cmp-table td:first-child { font-style: italic; color: var(--ink3); }
+  .best-badge { font-family: 'Source Code Pro', monospace; font-size: 0.6rem; background: rgba(26,92,58,0.1); border: 1px solid rgba(26,92,58,0.3); color: var(--green); padding: 0.1rem 0.35rem; border-radius: 2px; margin-left: 0.4rem; }
 
-  .meta-row {
-    display: flex; gap: 1.5rem; margin-top: 1rem;
-  }
-  .meta-item { font-size: 0.8rem; }
-  .meta-item span { color: var(--muted); display: block; font-size: 0.7rem; margin-bottom: 2px; }
+  .page-footer { text-align: center; padding: 1rem 0 0; border-top: 1px solid var(--rule); font-size: 0.75rem; font-style: italic; color: var(--ink4); }
 
-  /* Chart area */
-  .chart-section {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-  }
-  .chart-section h3 {
-    font-size: 0.8rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1.25rem;
-  }
-  canvas { width: 100% !important; border-radius: 6px; }
-
-  /* Comparison table */
-  .compare-section {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    display: none;
-  }
-  .compare-section.visible { display: block; }
-  .compare-section h3 {
-    font-size: 0.8rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1.25rem;
-  }
-  .cmp-table { width: 100%; border-collapse: collapse; }
-  .cmp-table th, .cmp-table td {
-    text-align: left;
-    padding: 0.7rem 1rem;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.85rem;
-  }
-  .cmp-table th { color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.75rem; font-weight: 400; }
-  .cmp-table td:first-child { font-weight: 700; }
-  .winner-cell { color: var(--accent); font-weight: 700 !important; }
-  .badge-winner {
-    display: inline-block;
-    background: rgba(0,255,204,0.15);
-    border: 1px solid rgba(0,255,204,0.4);
-    color: var(--accent);
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-family: 'Space Mono', monospace;
-    margin-left: 0.5rem;
-  }
-
-  /* Tour visualization canvas */
-  .tour-canvas-wrap {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-  }
-  .tour-canvas-wrap h3 {
-    font-size: 0.8rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1.25rem;
-  }
-  .tour-canvases { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-  #tourCanvasAS, #tourCanvasMM { width: 100%; border-radius: 8px; background: var(--surface); }
-
-  /* Empty state */
-  .empty {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 0.5rem;
-    color: var(--muted);
-    font-size: 0.85rem;
-    height: 140px;
-    text-align: center;
-  }
-  .empty .icon { font-size: 2rem; opacity: 0.4; }
-
-  /* Toast */
-  .toast {
-    position: fixed; bottom: 2rem; right: 2rem;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.75rem 1.25rem;
-    font-size: 0.85rem;
-    opacity: 0;
-    transform: translateY(10px);
-    transition: all 0.3s;
-    z-index: 99;
-  }
+  .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--ink); border-radius: 2px; padding: 0.65rem 1.1rem; font-size: 0.85rem; box-shadow: 0 4px 20px var(--shadow); opacity: 0; transform: translateY(8px); transition: all 0.25s; z-index: 99; font-family: 'EB Garamond', serif; }
   .toast.show { opacity: 1; transform: translateY(0); }
-  .toast.error { border-color: #ef4444; color: #fca5a5; }
-  .toast.success { border-color: var(--accent); color: var(--accent); }
+  .toast.success { border-left-color: var(--green); color: var(--green); }
+  .toast.error { border-left-color: var(--red); color: var(--red); }
 
-  @media (max-width: 768px) {
-    .matrices, .controls-grid, .results, .tour-canvases { grid-template-columns: 1fr; }
-    .run-buttons { flex-direction: column; }
+  @media (max-width: 720px) {
+    .page-inner { padding: 2rem 1.5rem; }
+    .two-col, .three-col, .four-col, .canvas-pair { grid-template-columns: 1fr; }
+    .btn-row { flex-direction: column; }
   }
 </style>
 </head>
 <body>
-<div class="wrapper">
+<div class="page">
+  <div class="page-top"></div>
+  <div class="page-inner">
 
-  <header>
-    <div class="logo">
-      <div class="logo-icon">🐜</div>
+    <header class="journal-header">
+      <div class="journal-meta">Computational Intelligence · Assignment A.5 · ACO for TSP</div>
+      <h1 class="journal-title">Travelling Salesman Problem<br>via Ant Colony Optimization</h1>
+      <p class="journal-subtitle">AS, MMAS, and Rank-Based AS — Comparative Study</p>
+    </header>
+
+    <hr class="rule-thin">
+    <p style="font-size:0.92rem;font-style:italic;color:var(--ink3);line-height:1.7;margin-bottom:1.5rem;">
+      <strong style="font-style:normal;color:var(--ink2)">Abstract.</strong>
+      This interface implements and compares three ant-based metaheuristics for the 5-city TSP.
+      Standard AS uses all ants for pheromone updates. MMAS restricts updates to the best ant
+      with pheromone bounding. Rank-Based AS (AS-rank) uses a weighted update from the top-ranked ants
+      and the best-so-far solution to guide discovery.
+    </p>
+    <hr class="rule-thick">
+
+    <div class="section-head">§ 1 · Problem Data</div>
+    <div class="two-col" style="margin-bottom:2rem;">
       <div>
-        <h1>TSP <span>ACO</span></h1>
-        <div style="font-size:0.75rem; color:var(--muted)">Ant Colony Optimization</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:0.5rem;align-items:center">
-      <span class="badge">5 Cities</span>
-      <span class="badge">AS + MMAS</span>
-    </div>
-  </header>
-
-  <!-- Matrices -->
-  <div class="matrices">
-    <div class="matrix-card">
-      <h3>Distance Matrix <span>d</span></h3>
-      <div class="matrix-grid" id="distMatrix"></div>
-    </div>
-    <div class="matrix-card">
-      <h3>Initial Pheromone <span>τ₀</span></h3>
-      <div class="matrix-grid" id="pheroMatrix"></div>
-    </div>
-  </div>
-
-  <!-- Parameters -->
-  <div class="controls-grid">
-    <div class="control-group">
-      <h3>🐜 Ant Parameters</h3>
-      <div class="param-row"><label>Ants (m)</label><input type="number" id="p_ants" value="10" min="1" max="50" /></div>
-      <div class="param-row"><label>Iterations</label><input type="number" id="p_iter" value="100" min="10" max="500" /></div>
-      <div class="param-row"><label>Seed</label><input type="number" id="p_seed" value="42" /></div>
-    </div>
-    <div class="control-group">
-      <h3>⚗️ ACO Hyperparams</h3>
-      <div class="param-row"><label>Alpha (α)</label><input type="number" id="p_alpha" value="1.0" step="0.1" /></div>
-      <div class="param-row"><label>Beta (β)</label><input type="number" id="p_beta" value="2.0" step="0.1" /></div>
-      <div class="param-row"><label>Rho (ρ)</label><input type="number" id="p_rho" value="0.5" step="0.05" max="1" /></div>
-      <div class="param-row"><label>Q</label><input type="number" id="p_Q" value="100" step="10" /></div>
-    </div>
-    <div class="control-group">
-      <h3>🔢 MMAS Bounds</h3>
-      <div class="param-row"><label>τ_max</label><input type="number" id="p_tmax" value="6.0" step="0.5" /></div>
-      <div class="param-row"><label>τ_min</label><input type="number" id="p_tmin" value="0.1" step="0.05" /></div>
-    </div>
-  </div>
-
-  <!-- Run Buttons -->
-  <div class="run-buttons">
-    <button class="btn btn-as" id="btnAS" onclick="runAS()">▶ Run Ant System</button>
-    <button class="btn btn-mmas" id="btnMM" onclick="runMmas()">▶ Run Max-Min AS</button>
-    <button class="btn btn-compare" id="btnCmp" onclick="runCompare()">⚖ Compare Both</button>
-  </div>
-
-  <!-- Results -->
-  <div class="results">
-    <div class="result-card as-card">
-      <div class="alg-label">Ant System (AS)</div>
-      <div id="asResult">
-        <div class="empty"><div class="icon">🐜</div>Run AS to see results</div>
-      </div>
-    </div>
-    <div class="result-card mmas-card">
-      <div class="alg-label">Max-Min Ant System</div>
-      <div id="mmasResult">
-        <div class="empty"><div class="icon">🐜</div>Run MMAS to see results</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tour visualization -->
-  <div class="tour-canvas-wrap" id="tourWrap" style="display:none">
-    <h3>🗺 Best Tour Visualization</h3>
-    <div class="tour-canvases">
-      <div>
-        <div style="font-size:0.75rem;color:var(--as-color);font-family:'Space Mono',monospace;margin-bottom:0.5rem">AS BEST TOUR</div>
-        <canvas id="tourCanvasAS" height="260"></canvas>
+        <div class="matrix-wrap">
+          <div class="matrix-label"><em>d</em> = Distance Matrix (symmetric, 5 × 5)</div>
+          <table class="matrix-table" id="distMatrix"></table>
+        </div>
       </div>
       <div>
-        <div style="font-size:0.75rem;color:var(--mmas-color);font-family:'Space Mono',monospace;margin-bottom:0.5rem">MMAS BEST TOUR</div>
-        <canvas id="tourCanvasMM" height="260"></canvas>
+        <div class="matrix-wrap">
+          <div class="matrix-label"><em>τ</em><sub>0</sub> = Initial Pheromone Matrix</div>
+          <table class="matrix-table" id="pheroMatrix"></table>
+        </div>
+        <p style="font-size:0.8rem;color:var(--ink3);font-style:italic;margin-top:0.5rem;">All entries initialised to 1.0, representing uniform prior beliefs.</p>
       </div>
     </div>
-  </div>
 
-  <!-- Convergence Chart -->
-  <div class="chart-section" id="chartSection" style="display:none">
-    <h3>📈 Convergence — Best Tour Length per Iteration</h3>
-    <canvas id="convergenceChart" height="100"></canvas>
-  </div>
+    <hr class="rule-thick">
+    <div class="section-head">§ 2 · Algorithm Parameters</div>
+    <div class="four-col" style="margin-bottom:1.5rem;">
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--ink2);margin-bottom:0.6rem;font-style:italic;">Ant Parameters</div>
+        <div class="param-block">
+          <div class="param-row"><span class="param-name"><em>m</em> (ants)</span><input class="param-val" id="p_ants" type="number" value="10" min="1" max="50"/></div>
+          <div class="param-row"><span class="param-name">Iterations</span><input class="param-val" id="p_iter" type="number" value="100" min="10" max="500"/></div>
+          <div class="param-row"><span class="param-name">Seed</span><input class="param-val" id="p_seed" type="number" value="42"/></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--ink2);margin-bottom:0.6rem;font-style:italic;">ACO Hyperparams</div>
+        <div class="param-block">
+          <div class="param-row"><span class="param-name"><em>α</em> (phero wt)</span><input class="param-val" id="p_alpha" type="number" value="1.0" step="0.1"/></div>
+          <div class="param-row"><span class="param-name"><em>β</em> (heur wt)</span><input class="param-val" id="p_beta" type="number" value="2.0" step="0.1"/></div>
+          <div class="param-row"><span class="param-name"><em>ρ</em> (evap)</span><input class="param-val" id="p_rho" type="number" value="0.5" step="0.05" max="1"/></div>
+          <div class="param-row"><span class="param-name"><em>Q</em> (deposit)</span><input class="param-val" id="p_Q" type="number" value="100" step="10"/></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--ink2);margin-bottom:0.6rem;font-style:italic;">MMAS Bounds</div>
+        <div class="param-block">
+          <div class="param-row"><span class="param-name"><em>τ</em><sub>max</sub></span><input class="param-val" id="p_tmax" type="number" value="6.0" step="0.5"/></div>
+          <div class="param-row"><span class="param-name"><em>τ</em><sub>min</sub></span><input class="param-val" id="p_tmin" type="number" value="0.1" step="0.05"/></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--ink2);margin-bottom:0.6rem;font-style:italic;">Rank-Based AS</div>
+        <div class="param-block">
+          <div class="param-row"><span class="param-name"><em>w</em> (rank weight)</span><input class="param-val" id="p_weight" type="number" value="6" min="1" max="10"/></div>
+        </div>
+      </div>
+    </div>
 
-  <!-- Comparison Table -->
-  <div class="compare-section" id="compareSection">
-    <h3>⚖ Algorithm Comparison</h3>
-    <table class="cmp-table">
-      <thead>
-        <tr>
-          <th>Metric</th><th>Ant System (AS)</th><th>Max-Min AS</th><th>Notes</th>
-        </tr>
-      </thead>
-      <tbody id="cmpBody"></tbody>
-    </table>
-  </div>
+    <div class="btn-row">
+      <button class="btn btn-as" id="btnAS" onclick="runAS()">Run AS</button>
+      <button class="btn btn-mmas" id="btnMM" onclick="runMmas()">Run MMAS</button>
+      <button class="btn btn-rank" id="btnRank" onclick="runRank()">Run Rank-Based AS</button>
+      <button class="btn btn-compare" id="btnCmp" onclick="runCompare()">Compare All</button>
+    </div>
 
+    <hr class="rule-thick">
+    <div class="section-head">§ 3 · Results</div>
+    <div class="three-col" style="margin-bottom:2rem;">
+      <div class="result-card as-card">
+        <div class="result-algo">Ant System — AS</div>
+        <div id="asResult"><div class="empty-state"><div class="ant-icon">🐜</div>Run AS to view results</div></div>
+      </div>
+      <div class="result-card mmas-card">
+        <div class="result-algo">Max-Min Ant System — MMAS</div>
+        <div id="mmasResult"><div class="empty-state"><div class="ant-icon">🐜</div>Run MMAS to view results</div></div>
+      </div>
+      <div class="result-card rank-card">
+        <div class="result-algo">Rank-Based AS — AS-rank</div>
+        <div id="rankResult"><div class="empty-state"><div class="ant-icon">🐜</div>Run AS-rank to view results</div></div>
+      </div>
+    </div>
+
+    <div id="tourSection" style="display:none;margin-bottom:2rem;">
+      <div class="section-head">§ 4 · Tour Visualization</div>
+      <div class="three-col">
+        <div>
+          <div class="canvas-label" style="color:var(--blue)">AS — Best Tour</div>
+          <canvas id="tourCanvasAS" height="200"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label" style="color:var(--red)">MMAS — Best Tour</div>
+          <canvas id="tourCanvasMM" height="200"></canvas>
+        </div>
+        <div>
+          <div class="canvas-label" style="color:var(--purple)">Rank-Based — Best Tour</div>
+          <canvas id="tourCanvasRank" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="chartSection" style="display:none;margin-bottom:2rem;">
+      <div class="section-head">§ 5 · Convergence Analysis</div>
+      <canvas id="convergenceChart" height="90"></canvas>
+    </div>
+
+    <div id="compareSection" style="display:none;margin-bottom:2rem;">
+      <div class="section-head">§ 6 · Comparative Analysis</div>
+      <table class="cmp-table">
+        <thead><tr><th>Metric</th><th>AS</th><th>MMAS</th><th>Rank-BS</th><th>Remarks</th></tr></thead>
+        <tbody id="cmpBody"></tbody>
+      </table>
+    </div>
+
+    <hr class="rule-thin" style="margin-top:2rem;">
+    <footer class="page-footer">Ant Colony Optimization · Dorigo & Stützle · Implemented for Academic Assignment A.5</footer>
+
+  </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
-<!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 const API = 'http://localhost:5000';
-let chartInstance = null;
-let asData = null, mmasData = null;
-
-// City positions for visualization (pentagon layout)
-const CITY_POS = [
-  {x: 0.5,  y: 0.1,  name: 'C0'},
-  {x: 0.9,  y: 0.4,  name: 'C1'},
-  {x: 0.75, y: 0.85, name: 'C2'},
-  {x: 0.25, y: 0.85, name: 'C3'},
-  {x: 0.1,  y: 0.4,  name: 'C4'},
-];
-
-const DIST = [
-  [0,10,12,11,14],[10,0,13,15,8],[12,13,0,9,14],[11,15,9,0,16],[14,8,14,16,0]
-];
+let chartInstance = null, asData = null, mmasData = null, rankData = null;
+const DIST = [[0,10,12,11,14],[10,0,13,15,8],[12,13,0,9,14],[11,15,9,0,16],[14,8,14,16,0]];
 const PHERO = Array(5).fill(null).map(() => Array(5).fill(1));
+const CITY_POS = [{x:0.5,y:0.1},{x:0.92,y:0.40},{x:0.76,y:0.88},{x:0.24,y:0.88},{x:0.08,y:0.40}];
 
-// Render matrices
-function renderMatrix(id, data, type) {
-  const el = document.getElementById(id);
-  el.innerHTML = '';
-  for (let i = 0; i < 5; i++) {
-    for (let j = 0; j < 5; j++) {
-      const cell = document.createElement('div');
-      cell.className = 'matrix-cell' + (data[i][j] === 0 ? ' zero' : '');
-      cell.textContent = type === 'dist' ? data[i][j] : data[i][j].toFixed(1);
-      el.appendChild(cell);
+function buildMatrix(id, data, isDist) {
+  const el = document.getElementById(id); el.innerHTML = '';
+  for (let i=0;i<5;i++) {
+    const tr = document.createElement('tr');
+    for (let j=0;j<5;j++) {
+      const td = document.createElement('td');
+      td.className = i===j?'diag':'';
+      td.textContent = isDist ? data[i][j] : data[i][j].toFixed(1);
+      tr.appendChild(td);
     }
+    el.appendChild(tr);
   }
 }
-
-renderMatrix('distMatrix', DIST, 'dist');
-renderMatrix('pheroMatrix', PHERO, 'phero');
+buildMatrix('distMatrix', DIST, true);
+buildMatrix('pheroMatrix', PHERO, false);
 
 function getParams() {
-  return {
-    n_ants: +document.getElementById('p_ants').value,
-    n_iterations: +document.getElementById('p_iter').value,
-    alpha: +document.getElementById('p_alpha').value,
-    beta: +document.getElementById('p_beta').value,
-    rho: +document.getElementById('p_rho').value,
-    Q: +document.getElementById('p_Q').value,
-    seed: +document.getElementById('p_seed').value,
-    tau_max: +document.getElementById('p_tmax').value,
-    tau_min: +document.getElementById('p_tmin').value,
+  return { 
+    n_ants:+document.getElementById('p_ants').value, 
+    n_iterations:+document.getElementById('p_iter').value, 
+    alpha:+document.getElementById('p_alpha').value, 
+    beta:+document.getElementById('p_beta').value, 
+    rho:+document.getElementById('p_rho').value, 
+    Q:+document.getElementById('p_Q').value, 
+    seed:+document.getElementById('p_seed').value, 
+    tau_max:+document.getElementById('p_tmax').value, 
+    tau_min:+document.getElementById('p_tmin').value,
+    weight:+document.getElementById('p_weight').value
   };
 }
-
-function showToast(msg, type='success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type} show`;
-  setTimeout(() => t.className = 'toast', 2500);
+function toast(msg, type='success') {
+  const t=document.getElementById('toast'); t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.className='toast',2800);
 }
-
-function setLoading(id, loading) {
-  const btn = document.getElementById(id);
-  if (loading) {
-    btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span> Running...`;
-  } else {
-    btn.disabled = false;
-    if (id === 'btnAS') btn.innerHTML = '▶ Run Ant System';
-    else if (id === 'btnMM') btn.innerHTML = '▶ Run Max-Min AS';
-    else btn.innerHTML = '⚖ Compare Both';
-  }
+function setLoading(id, on) {
+  const b=document.getElementById(id); b.disabled=on;
+  if(on) b.innerHTML='<span class="spinner"></span> Computing…';
+  else { if(id==='btnAS') b.innerHTML='Run Ant System (AS)'; else if(id==='btnMM') b.innerHTML='Run Max-Min AS'; else b.innerHTML='Compare Both Algorithms'; }
 }
-
-function renderResult(elId, data, nodeClass) {
-  const el = document.getElementById(elId);
-  const tour = data.best_tour;
-  const tourDisp = [...tour, tour[0]];
-  const tourHtml = tourDisp.map((c, i) =>
-    `<div class="city-node ${nodeClass}">C${c}</div>${i < tourDisp.length-1 ? '<span class="arrow">→</span>' : ''}`
-  ).join('');
-  el.innerHTML = `
-    <div class="metric-big">${data.best_length.toFixed(1)}</div>
-    <div class="metric-label">Best Tour Length</div>
-    <div class="tour-path">${tourHtml}</div>
-    <div class="meta-row">
-      <div class="meta-item"><span>Time</span>${(data.time_seconds * 1000).toFixed(1)} ms</div>
-      <div class="meta-item"><span>Iterations</span>${data.history.length}</div>
-      <div class="meta-item"><span>Ants</span>${getParams().n_ants}</div>
-    </div>
-  `;
+function renderResult(elId, data, chipClass) {
+  const full=[...data.best_tour, data.best_tour[0]];
+  const chips=full.map((c,i)=>`<span class="city-chip ${chipClass}">C${c}</span>${i<full.length-1?'<span class="arrow-sep"> → </span>':''}`).join('');
+  document.getElementById(elId).innerHTML=`<div class="result-big">${data.best_length.toFixed(2)}</div><div class="result-sub">Optimal tour length (distance units)</div><div class="tour-path">${chips}</div><div class="result-meta"><div>Time &nbsp;<span>${(data.time_seconds*1000).toFixed(1)} ms</span></div><div>Iterations &nbsp;<span>${data.history.length}</span></div><div>Ants &nbsp;<span>${getParams().n_ants}</span></div></div>`;
 }
-
 function drawTour(canvasId, tour, color) {
-  const canvas = document.getElementById(canvasId);
-  const ctx = canvas.getContext('2d');
-  const W = canvas.offsetWidth || 380;
-  canvas.width = W; canvas.height = 260;
-  const pad = 40;
-  const w = W - pad*2, h = 260 - pad*2;
-
-  ctx.clearRect(0, 0, W, 260);
-
-  // Draw edges
-  const full = [...tour, tour[0]];
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.globalAlpha = 0.7;
-  ctx.beginPath();
-  for (let i = 0; i < full.length; i++) {
-    const p = CITY_POS[full[i]];
-    const x = pad + p.x * w, y = pad + p.y * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // Draw nodes
-  CITY_POS.forEach((p, i) => {
-    const x = pad + p.x * w, y = pad + p.y * h;
-    ctx.beginPath();
-    ctx.arc(x, y, 14, 0, Math.PI*2);
-    ctx.fillStyle = '#13131f';
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.fillStyle = color;
-    ctx.font = 'bold 11px Space Mono, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`C${i}`, x, y);
-  });
+  const canvas=document.getElementById(canvasId);
+  const W=canvas.parentElement.offsetWidth||300; canvas.width=W; canvas.height=200;
+  const ctx=canvas.getContext('2d'), pad=30, w=W-pad*2, h=200-pad*2;
+  ctx.fillStyle='rgba(247,243,235,0.7)'; ctx.fillRect(0,0,W,200);
+  const full=[...tour,tour[0]];
+  ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=1.8; ctx.globalAlpha=0.6;
+  full.forEach((c,i)=>{ const p=CITY_POS[c],x=pad+p.x*w,y=pad+p.y*h; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.stroke(); ctx.globalAlpha=1;
+  CITY_POS.forEach((p,i)=>{ const x=pad+p.x*w,y=pad+p.y*h; ctx.beginPath(); ctx.arc(x,y,12,0,Math.PI*2); ctx.fillStyle='#f7f3eb'; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.stroke(); ctx.fillStyle=color; ctx.font='600 9px "Source Code Pro",monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(`C${i}`,x,y); });
 }
-
-function updateConvergenceChart(asHistory, mmasHistory) {
-  const labels = asHistory.map(h => h.iteration);
-  const asData = asHistory.map(h => h.best_length);
-  const mmData = mmasHistory ? mmasHistory.map(h => h.best_length) : null;
-
-  if (chartInstance) chartInstance.destroy();
-
-  const ctx = document.getElementById('convergenceChart').getContext('2d');
-  const datasets = [{
-    label: 'AS Best Length',
-    data: asData,
-    borderColor: '#00ffcc',
-    backgroundColor: 'rgba(0,255,204,0.07)',
-    borderWidth: 2,
-    pointRadius: 0,
-    tension: 0.3,
-    fill: true
-  }];
-  if (mmData) datasets.push({
-    label: 'MMAS Best Length',
-    data: mmData,
-    borderColor: '#ff6b35',
-    backgroundColor: 'rgba(255,107,53,0.07)',
-    borderWidth: 2,
-    pointRadius: 0,
-    tension: 0.3,
-    fill: true
-  });
-
-  chartInstance = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      animation: { duration: 600 },
-      plugins: {
-        legend: { labels: { color: '#94a3b8', font: { family: 'Space Mono', size: 11 } } }
-      },
-      scales: {
-        x: { ticks: { color: '#475569', maxTicksLimit: 10 }, grid: { color: '#1e1e2e' } },
-        y: { ticks: { color: '#475569' }, grid: { color: '#1e1e2e' } }
-      }
-    }
-  });
-  document.getElementById('chartSection').style.display = 'block';
+function renderChart(h1, h2, h3) {
+  if(chartInstance) chartInstance.destroy();
+  const labels=(h1||h2||h3).map(h=>h.iteration);
+  const datasets=[];
+  if(h1) datasets.push({label:'AS',data:h1.map(h=>h.best_length),borderColor:'#1a3a6b',backgroundColor:'rgba(26,58,107,0.06)',borderWidth:1.8,pointRadius:0,tension:0.35,fill:true});
+  if(h2) datasets.push({label:'MMAS',data:h2.map(h=>h.best_length),borderColor:'#8b1a1a',backgroundColor:'rgba(139,26,26,0.06)',borderWidth:1.8,pointRadius:0,tension:0.35,fill:true});
+  if(h3) datasets.push({label:'Rank-AS',data:h3.map(h=>h.best_length),borderColor:'#4a1a6b',backgroundColor:'rgba(74,26,107,0.06)',borderWidth:1.8,pointRadius:0,tension:0.35,fill:true});
+  chartInstance=new Chart(document.getElementById('convergenceChart').getContext('2d'),{type:'line',data:{labels,datasets},options:{responsive:true,animation:{duration:500},plugins:{legend:{labels:{color:'#6b5f54',font:{family:"'EB Garamond',serif",size:13},boxWidth:16}}},scales:{x:{ticks:{color:'#9b8e83',maxTicksLimit:10,font:{family:"'Source Code Pro',monospace",size:10}},grid:{color:'rgba(200,191,176,0.5)'},title:{display:true,text:'Iteration',color:'#6b5f54',font:{family:"'EB Garamond',serif",size:12,style:'italic'}}},y:{ticks:{color:'#9b8e83',font:{family:"'Source Code Pro',monospace",size:10}},grid:{color:'rgba(200,191,176,0.5)'},title:{display:true,text:'Tour Length',color:'#6b5f54',font:{family:"'EB Garamond',serif",size:12,style:'italic'}}}}}});
+  document.getElementById('chartSection').style.display='block';
 }
+function renderComparison(asd, mmd, rkd) {
+  const minLen = Math.min(
+    asd ? asd.best_length : Infinity, 
+    mmd ? mmd.best_length : Infinity, 
+    rkd ? rkd.best_length : Infinity
+  );
+  
+  const fmt = (d, id) => d ? `${d.best_length.toFixed(2)}${d.best_length <= minLen ? '<span class="best-badge">best</span>' : ''}` : '-';
+  const fmtTime = (d) => d ? `${(d.time_seconds*1000).toFixed(1)} ms` : '-';
+  const fmtTour = (d) => d ? d.best_tour.join(' → ') : '-';
 
-function showComparison(asd, mmd) {
-  const winner = asd.best_length <= mmd.best_length ? 'AS' : 'MMAS';
-  const rows = [
-    ['Best Tour Length',
-      `${asd.best_length.toFixed(2)}${winner==='AS'?'<span class="badge-winner">BEST</span>':''}`,
-      `${mmd.best_length.toFixed(2)}${winner==='MMAS'?'<span class="badge-winner">BEST</span>':''}`,
-      'Lower is better'],
-    ['Best Tour', asd.best_tour.join('→'), mmd.best_tour.join('→'), 'City sequence'],
-    ['Time (ms)', (asd.time_seconds*1000).toFixed(1), (mmd.time_seconds*1000).toFixed(1), 'Wall clock'],
-    ['Pheromone Update', 'All ants deposit', 'Only best ant + clamp', 'MMAS: τ∈[τ_min,τ_max]'],
-    ['Exploration', 'Moderate', 'Higher (diversity enforced)', 'MMAS avoids stagnation'],
-    ['Complexity', 'O(m·n²·t)', 'O(m·n²·t)', 'm=ants,n=cities,t=iter'],
-    ['Convergence', 'May stagnate', 'Slower but more robust', 'Trade-off'],
+  const rows=[
+    ['Best tour length', fmt(asd), fmt(mmd), fmt(rkd), 'Lower is better'],
+    ['Best tour sequence', fmtTour(asd), fmtTour(mmd), fmtTour(rkd), 'City order'],
+    ['Execution time', fmtTime(asd), fmtTime(mmd), fmtTime(rkd), 'Wall-clock time'],
+    ['Update Strategy', 'All ants', 'Iteration Best', 'Ranked + BSF', 'Logic type'],
+    ['Diversity Mech.', 'Evaporation', 'Clamping', 'Weighting', 'Exploration'],
   ];
-  document.getElementById('cmpBody').innerHTML = rows.map(r =>
-    `<tr>${r.map((c,i)=>`<td${i===0?' style="font-weight:700"':''}>${c}</td>`).join('')}</tr>`
-  ).join('');
-  document.getElementById('compareSection').classList.add('visible');
+  document.getElementById('cmpBody').innerHTML=rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
+  document.getElementById('compareSection').style.display='block';
 }
 
 async function runAS() {
-  setLoading('btnAS', true);
+  setLoading('btnAS',true);
   try {
-    const res = await fetch(`${API}/run_as`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(getParams())
-    });
-    asData = await res.json();
-    renderResult('asResult', asData, 'as-node');
-    document.getElementById('tourWrap').style.display = 'block';
-    drawTour('tourCanvasAS', asData.best_tour, '#00ffcc');
-    updateConvergenceChart(asData.history, mmasData?.history || null);
-    if (asData && mmasData) showComparison(asData, mmasData);
-    showToast(`AS done — best: ${asData.best_length.toFixed(1)}`);
-  } catch(e) {
-    showToast('Backend not reachable. Start Flask on port 5000.', 'error');
-  }
-  setLoading('btnAS', false);
+    const res=await fetch(`${API}/run_as`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getParams())});
+    asData=await res.json();
+    renderResult('asResult',asData,'as-chip');
+    document.getElementById('tourSection').style.display='block';
+    drawTour('tourCanvasAS',asData.best_tour,'#1a3a6b');
+    renderChart(asData.history, mmasData?.history, rankData?.history);
+    renderComparison(asData, mmasData, rankData);
+    toast(`AS complete — best: ${asData.best_length.toFixed(2)}`);
+  } catch(e) { toast('Cannot reach backend. Run: python app.py','error'); }
+  setLoading('btnAS',false);
 }
-
 async function runMmas() {
-  setLoading('btnMM', true);
+  setLoading('btnMM',true);
   try {
-    const res = await fetch(`${API}/run_mmas`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(getParams())
-    });
-    mmasData = await res.json();
-    renderResult('mmasResult', mmasData, 'mmas-node');
-    document.getElementById('tourWrap').style.display = 'block';
-    drawTour('tourCanvasMM', mmasData.best_tour, '#ff6b35');
-    updateConvergenceChart(asData?.history || mmasData.history, mmasData.history);
-    if (asData && mmasData) showComparison(asData, mmasData);
-    showToast(`MMAS done — best: ${mmasData.best_length.toFixed(1)}`);
-  } catch(e) {
-    showToast('Backend not reachable. Start Flask on port 5000.', 'error');
-  }
-  setLoading('btnMM', false);
+    const res=await fetch(`${API}/run_mmas`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getParams())});
+    mmasData=await res.json();
+    renderResult('mmasResult',mmasData,'mmas-chip');
+    document.getElementById('tourSection').style.display='block';
+    drawTour('tourCanvasMM',mmasData.best_tour,'#8b1a1a');
+    renderChart(asData?.history, mmasData.history, rankData?.history);
+    renderComparison(asData, mmasData, rankData);
+    toast(`MMAS complete — best: ${mmasData.best_length.toFixed(2)}`);
+  } catch(e) { toast('Cannot reach backend. Run: python app.py','error'); }
+  setLoading('btnMM',false);
 }
-
-async function runCompare() {
-  setLoading('btnCmp', true);
+async function runRank() {
+  setLoading('btnRank',true);
   try {
-    const res = await fetch(`${API}/compare`);
-    const data = await res.json();
-    asData = data.as; mmasData = data.mmas;
-    renderResult('asResult', asData, 'as-node');
-    renderResult('mmasResult', mmasData, 'mmas-node');
-    document.getElementById('tourWrap').style.display = 'block';
-    drawTour('tourCanvasAS', asData.best_tour, '#00ffcc');
-    drawTour('tourCanvasMM', mmasData.best_tour, '#ff6b35');
-    updateConvergenceChart(asData.history, mmasData.history);
-    showComparison(asData, mmasData);
-    showToast(`Comparison complete — winner: ${data.comparison.winner}`);
-  } catch(e) {
-    showToast('Backend not reachable. Start Flask on port 5000.', 'error');
-  }
-  setLoading('btnCmp', false);
+    const res=await fetch(`${API}/run_rank_as`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getParams())});
+    rankData=await res.json();
+    renderResult('rankResult',rankData,'rank-chip');
+    document.getElementById('tourSection').style.display='block';
+    drawTour('tourCanvasRank',rankData.best_tour,'#4a1a6b');
+    renderChart(asData?.history, mmasData?.history, rankData.history);
+    renderComparison(asData, mmasData, rankData);
+    toast(`Rank-AS complete — best: ${rankData.best_length.toFixed(2)}`);
+  } catch(e) { toast('Cannot reach backend.','error'); }
+  setLoading('btnRank',false);
+}
+async function runCompare() {
+  setLoading('btnCmp',true);
+  try {
+    const res=await fetch(`${API}/compare`);
+    const data=await res.json();
+    asData=data.as; mmasData=data.mmas; rankData=data.rank;
+    renderResult('asResult',asData,'as-chip');
+    renderResult('mmasResult',mmasData,'mmas-chip');
+    renderResult('rankResult',rankData,'rank-chip');
+    document.getElementById('tourSection').style.display='block';
+    drawTour('tourCanvasAS',asData.best_tour,'#1a3a6b');
+    drawTour('tourCanvasMM',mmasData.best_tour,'#8b1a1a');
+    drawTour('tourCanvasRank',rankData.best_tour,'#4a1a6b');
+    renderChart(asData.history, mmasData.history, rankData.history);
+    renderComparison(asData, mmasData, rankData);
+    toast(`Comparison done — winner: ${data.comparison.winner}`);
+  } catch(e) { toast('Cannot reach backend.','error'); }
+  setLoading('btnCmp',false);
 }
 </script>
 </body>

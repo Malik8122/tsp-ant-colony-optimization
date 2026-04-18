@@ -142,6 +142,58 @@ class MaxMinAntSystem(AntSystemTSP):
         return result
 
 
+class RankBasedAntSystem(AntSystemTSP):
+    """Rank-Based Ant System (AS-rank) for TSP"""
+
+    def __init__(self, *args, weight: int = 6, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.weight = weight  # Number of top ants that deposit pheromone
+        self.algorithm_name = 'Rank-Based Ant System (AS-rank)'
+        self.best_so_far_tour = None
+        self.best_so_far_length = float('inf')
+
+    def _update_pheromone(self, all_tours: List[List[int]], all_lengths: List[float]):
+        # Evaporation
+        self.pheromone *= (1 - self.rho)
+
+        # Update best-so-far
+        iter_best_idx = int(np.argmin(all_lengths))
+        if all_lengths[iter_best_idx] < self.best_so_far_length:
+            self.best_so_far_length = all_lengths[iter_best_idx]
+            self.best_so_far_tour = all_tours[iter_best_idx][:]
+
+        # Rank ants
+        ranked_indices = np.argsort(all_lengths)
+        
+        # Top (weight - 1) ants deposit pheromone
+        # Rank mu=1 is the best, mu=weight-1 is the last to deposit
+        for rank in range(min(self.weight - 1, self.n_ants)):
+            idx = ranked_indices[rank]
+            tour = all_tours[idx]
+            length = all_lengths[idx]
+            # Contribution: (weight - rank - 1) * Q/L
+            deposit = (self.weight - rank - 1) * (self.Q / length)
+            for i in range(self.n_cities):
+                a, b = tour[i], tour[(i + 1) % self.n_cities]
+                self.pheromone[a][b] += deposit
+                self.pheromone[b][a] += deposit
+
+        # Best-so-far ant always deposits pheromone with highest weight
+        bsf_deposit = self.weight * (self.Q / self.best_so_far_length)
+        for i in range(self.n_cities):
+            a, b = self.best_so_far_tour[i], self.best_so_far_tour[(i + 1) % self.n_cities]
+            self.pheromone[a][b] += bsf_deposit
+            self.pheromone[b][a] += bsf_deposit
+
+    def solve(self) -> Dict:
+        self.best_so_far_tour = None
+        self.best_so_far_length = float('inf')
+        result = super().solve()
+        result['algorithm'] = self.algorithm_name
+        result['weight'] = self.weight
+        return result
+
+
 def compare_algorithms() -> Dict:
     """Run both algorithms and return comparison"""
     np.random.seed(42)
@@ -162,17 +214,37 @@ def compare_algorithms() -> Dict:
     )
     mmas_result = mmas_solver.solve()
 
+    np.random.seed(42)
+    rank_solver = RankBasedAntSystem(
+        DISTANCE_MATRIX, PHEROMONE_INIT,
+        n_ants=10, n_iterations=100,
+        alpha=1.0, beta=2.0, rho=0.5, Q=100.0,
+        weight=6
+    )
+    rank_result = rank_solver.solve()
+
+    results = {
+        'as': as_result,
+        'mmas': mmas_result,
+        'rank': rank_result
+    }
+    
+    # Simple winner comparison (best of three)
+    all_res = [as_result, mmas_result, rank_result]
+    best_res = min(all_res, key=lambda x: x['best_length'])
+    
     comparison = {
         'as': as_result,
         'mmas': mmas_result,
+        'rank': rank_result,
         'comparison': {
             'as_best_length': as_result['best_length'],
             'mmas_best_length': mmas_result['best_length'],
+            'rank_best_length': rank_result['best_length'],
             'as_time': as_result['time_seconds'],
             'mmas_time': mmas_result['time_seconds'],
-            'as_tour': as_result['best_tour'],
-            'mmas_tour': mmas_result['best_tour'],
-            'winner': 'MMAS' if mmas_result['best_length'] <= as_result['best_length'] else 'AS'
+            'rank_time': rank_result['time_seconds'],
+            'winner': best_res['algorithm']
         }
     }
     return comparison
